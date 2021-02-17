@@ -1354,7 +1354,7 @@ IR_down<-function(remDr,api,IR_id){
 
 IR_result<-function(api,IR_id,IR_target_cohort,IR_outcome_cohort){
   result_IR<-data.frame()
-    
+  
   for(i in api$no1){
     if(api$source_name[i-1]!='KBNUH_5.3.0_02'){
     root1 <- paste("Rtemp_IR", api$name[i-1], sep="/")
@@ -1364,24 +1364,24 @@ IR_result<-function(api,IR_id,IR_target_cohort,IR_outcome_cohort){
     data_tmp<-data_tmp%>% mutate(HCOs=api$name[i-1], proportion = cases/total, rate=cases/timeAtRisk)
     
     #target_name
-    ir_target_name<-IR_target_cohort[[i-1]]
-    ir_target_name<-str_split(ir_target_name,pattern = ": ")
+    ir_target_tmp<-IR_target_cohort[[i-1]]
+    ir_target_tmp<-str_split(ir_target_tmp,pattern = ": ")
     
-    a<-as.numeric(unlist(lapply(ir_target_name_id,function(x) gsub("#","",x[1]))))
-    b<-unlist(lapply(ir_target_name_id,function(x)x[2]))
+    a<-as.numeric(unlist(lapply(ir_target_tmp,function(x) gsub("#","",x[1]))))
+    b<-unlist(lapply(ir_target_tmp,function(x)x[2]))
     ir_target_name<-data.frame(target_id=a,target_name=b)
     
     data_tmp<-left_join(data_tmp,ir_target_name,by=c('targetId'='target_id'))
     
     #outcome_name
-    ir_outcome_name<-IR_outcome_cohort[[i-1]]
-    ir_outcome_name<-str_split(ir_outcome_name,pattern = ": ")
+    ir_outcome_tmp<-IR_outcome_cohort[[i-1]]
+    ir_outcome_tmp<-str_split(ir_outcome_tmp,pattern = ": ")
     
-    c<-as.numeric(unlist(lapply(ir_outcome_name,function(x) gsub("#","",x[1]))))
-    d<-unlist(lapply(ir_outcome_name,function(x)x[2]))
+    c<-as.numeric(unlist(lapply(ir_outcome_tmp,function(x) gsub("#","",x[1]))))
+    d<-unlist(lapply(ir_outcome_tmp,function(x)x[2]))
     ir_outcome_name<-data.frame(outcome_id=c,outcome_name=d)
 
-    data_tmp<-left_join(data_tmp,ir_target_name,by=c('outcomeId'='outcome_id'))
+    data_tmp<-left_join(data_tmp,ir_outcome_name,by=c('outcomeId'='outcome_id'))
     
     
     result_IR<-rbind(result_IR,data_tmp)
