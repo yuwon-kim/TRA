@@ -1143,6 +1143,8 @@ IR_import<-function(remDr,api,json_ir){
 IR_get_id<-function(remDr,api){
   
   IR_id<-c()
+  IR_target_cohort<-list()
+  IR_outcome_cohort<-list()
   
   # try to switch to new window
   check_handle <- FALSE
@@ -1165,18 +1167,21 @@ IR_get_id<-function(remDr,api){
   HCO<-i-1
   if(api$source_name[i-1]=='KBNUH_5.3.0_02'){IR_id <-append(IR_id, IR_id_tmp)}else{
     
-  body<-remDr$getPageSource()[[1]]
-  body<-body %>% read_html()
+  # body<-remDr$getPageSource()[[1]]
+  # body<-body %>% read_html()
+  # 
+  # IR_id_tmp<-body %>%
+  #   html_nodes("heading-title") %>% 
+  #   html_text()
+  # 
+  # ##데이터 전처리
+  # IR_id_tmp<-str_replace_all(IR_id_tmp,"\n","")
+  # IR_id_tmp<-str_replace_all(IR_id_tmp,"\t","")
   
-  IR_id_tmp<-body %>%
-    html_nodes("heading-title") %>% 
-    html_text()
-  
-  ##데이터 전처리
-  IR_id_tmp<-str_replace_all(IR_id_tmp,"\n","")
-  IR_id_tmp<-str_replace_all(IR_id_tmp,"\t","")
-  
-  
+  test <- remDr$findElement(using="xpath",value='//*[@id="currentComponent"]/heading-title/div/span')
+  IR_id_tmp<-unlist(test$getElementText())
+    
+
   IR_id_tmp<-strsplit(IR_id_tmp,'#')[[1]][2]
   
   if (length(IR_id_tmp) == 0) {
@@ -1184,11 +1189,23 @@ IR_get_id<-function(remDr,api){
   } else {
     IR_id <-append(IR_id, IR_id_tmp)
   }
-  }
-  }
-  saveRDS(IR_id, './input/IR_id.rds')
-  return(IR_id)
   
+  #target or outcome name 
+  td_1 <- remDr$findElement(using="xpath",value='//*[@id="currentComponent"]/div[1]/div[1]/div[2]/div[1]/div/ir-analysis-editor/div/div[1]/table/tbody/tr[2]/td[1]/table')
+  td_2 <- remDr$findElement(using="xpath",value='//*[@id="currentComponent"]/div[1]/div[1]/div[2]/div[1]/div/ir-analysis-editor/div/div[1]/table/tbody/tr[2]/td[2]/table')
+  ir_target_name<-str_split(td_1$getElementText()[[1]],pattern = '\n')[[1]]
+  ir_outcome_name<-str_split(td_2$getElementText()[[1]],pattern = '\n')[[1]]  
+  
+  IR_target_cohort[[i-1]]<-ir_target_name
+  IR_outcome_cohort[[i-1]]<-ir_outcome_name
+  
+  }
+  }
+
+  saveRDS(IR_id, './input/IR_id.rds')
+  saveRDS(IR_target_cohort,'./input/IR_target_cohort.rds' )
+  saveRDS(IR_outcome_cohort,'./input/IR_outcome_cohort.rds' )
+
 }
 
 
@@ -1225,15 +1242,15 @@ IR_generation<-function(remDr,api,IR_id){
     }else{
     btn(remDr,'//*[@id="currentComponent"]/div[1]/div[1]/div[2]/div[3]/div/ir-analysis-results/div[1]/div[2]/select-sources-btn/span/button/span')$clickElement()
       
-    
-    # value <- vector()
+
+    value <- vector()
     for(j in 1:99999){
       tryCatch(remDr$
-                 findElement(using="xpath",value=paste0('//*[@id="DataTables_Table_',j,'"]/tbody/tr[2]/td[1]/span')), error =function(e){print(j)})
+                 findElement(using="xpath",value=paste0('//*[@id="DataTables_Table_',j,'"]/tbody/tr[2]/td[2]')), error =function(e){print(j)})
       if(is.null(remDr$errorDetails()$message)) {value <- j ; break;}
     }
     
-    xpath <- remDr$findElement(using="xpath",value=paste0('//*[@id="DataTables_Table_',value,'"]/tbody/tr[',api$db_no[i-1],']/td[1]/span'))
+    xpath <- remDr$findElement(using="xpath",value=paste0('//*[@id="DataTables_Table_',value,'"]/tbody/tr[',api$db_no[i-1],']/td[2]'))
     xpath$clickElement()
     
     
@@ -1248,8 +1265,8 @@ IR_generation<-function(remDr,api,IR_id){
 
 
 ##Incidence 
-IR_result<-function(remDr,api,IR_id){
-  result_IR<-data.frame()
+IR_down<-function(remDr,api,IR_id){
+  # result_IR<-data.frame()
   
   # try to switch to new window
   check_handle <- FALSE
@@ -1275,6 +1292,7 @@ IR_result<-function(remDr,api,IR_id){
   for(i in api$no1){
     #Incidence rate > generation > export 
     if(check_handle==TRUE){myswitch(remDr,windows_handles[[i]])}else{print('error')}
+    if(api$source_name[i-1]!='KBNUH_5.3.0_02'){
     remDr$navigate(paste0(api$api[i-1],'/iranalysis/',IR_id[i-1]))
     Sys.sleep(1)
     
@@ -1288,8 +1306,15 @@ IR_result<-function(remDr,api,IR_id){
     if(!dir.exists(root1)) dir.create(root1)
     
     
+    
     temp_folder <- root1
-    btn(remDr,'//*[@id="currentComponent"]/div[1]/div[1]/div[2]/div[3]/div/ir-analysis-results/div[1]/div[2]/button')$clickElement()
+    check<-tryCatch({remDr$findElement(using='xpath', value='//*[@id="currentComponent"]/div[1]/div[1]/div[2]/div[3]/div/ir-analysis-results/div[1]/div[2]/button')}, 
+                    error = function(e) print(NULL))
+    
+    if(!is.null(check)){
+      check$clickElement()
+    
+    # btn(remDr,'//*[@id="currentComponent"]/div[1]/div[1]/div[2]/div[3]/div/ir-analysis-results/div[1]/div[2]/button')$clickElement()
     Sys.sleep(2)
     
     file_name <- list.files(download_path, pattern = paste0('incidence-rate-',IR_id[i-1]))
@@ -1315,30 +1340,54 @@ IR_result<-function(remDr,api,IR_id){
     
     zipdata<-paste0(temp_folder,'/incidence-rate-',IR_id[i-1],".zip")
     unzip(zipdata,exdir=paste0("./",temp_folder))
-    data_tmp<-read.csv(file=paste0("./",temp_folder,'/ir_summary.csv'))
-    data_tmp<-data_tmp%>% mutate(HCOs=api$name[i-1], proportion = cases/total, rate=cases/timeAtRisk)
-    result_IR<-rbind(result_IR,data_tmp)
+    # data_tmp<-read.csv(file=paste0("./",temp_folder,'/ir_summary.csv'))
+    # data_tmp<-data_tmp%>% mutate(HCOs=api$name[i-1], proportion = cases/total, rate=cases/timeAtRisk)
+    # result_IR<-rbind(result_IR,data_tmp)
   }
-  
-  write.csv(result_IR,'./result_IR/result_IR.csv')
-  return(result_IR)
+  }
+  }
+  # write.csv(result_IR,'./result_IR/result_IR.csv')
+  # return(result_IR)
 }
 
 
 
-IR_result2<-function(remDr,api,IR_id){
+IR_result<-function(api,IR_id,IR_target_cohort,IR_outcome_cohort){
   result_IR<-data.frame()
-
+    
   for(i in api$no1){
+    if(api$source_name[i-1]!='KBNUH_5.3.0_02'){
     root1 <- paste("Rtemp_IR", api$name[i-1], sep="/")
-    zipdata<-paste0(root1,'/incidence-rate-',IR_id[i-1],".zip")
-    unzip(zipdata,exdir=paste0("./",root1))
+    # zipdata<-paste0(root1,'/incidence-rate-',IR_id[i-1],".zip")
+    # unzip(zipdata,exdir=paste0("./",root1))
     data_tmp<-read.csv(file=paste0("./",root1,'/ir_summary.csv'))
     data_tmp<-data_tmp%>% mutate(HCOs=api$name[i-1], proportion = cases/total, rate=cases/timeAtRisk)
+    
+    #target_name
+    ir_target_name<-IR_target_cohort[[i-1]]
+    ir_target_name<-str_split(ir_target_name,pattern = ": ")
+    
+    a<-as.numeric(unlist(lapply(ir_target_name_id,function(x) gsub("#","",x[1]))))
+    b<-unlist(lapply(ir_target_name_id,function(x)x[2]))
+    ir_target_name<-data.frame(target_id=a,target_name=b)
+    
+    data_tmp<-left_join(data_tmp,ir_target_name,by=c('targetId'='target_id'))
+    
+    #outcome_name
+    ir_outcome_name<-IR_outcome_cohort[[i-1]]
+    ir_outcome_name<-str_split(ir_outcome_name,pattern = ": ")
+    
+    c<-as.numeric(unlist(lapply(ir_outcome_name,function(x) gsub("#","",x[1]))))
+    d<-unlist(lapply(ir_outcome_name,function(x)x[2]))
+    ir_outcome_name<-data.frame(outcome_id=c,outcome_name=d)
+
+    data_tmp<-left_join(data_tmp,ir_target_name,by=c('outcomeId'='outcome_id'))
+    
+    
     result_IR<-rbind(result_IR,data_tmp)
     
   }
-  
+  }
   write.csv(result_IR,'./result_IR/result_IR.csv')
   return(result_IR)
   
@@ -1347,7 +1396,7 @@ IR_result2<-function(remDr,api,IR_id){
 
 
 
-
+############################################################################
 ##switch_navi
 switch_navi<-function(remDr,api,id){
   
@@ -1378,7 +1427,7 @@ switch_navi<-function(remDr,api,id){
 
 
 ##navi
-navi<-function(remDr,api){
+navi<-function(remDr,api,IR_id){
   
   # try to switch to new window
   check_handle <- FALSE
@@ -1396,7 +1445,7 @@ navi<-function(remDr,api){
   #characterization
   for(i in api$no1){
     if(check_handle==TRUE){myswitch(remDr,windows_handles[[i]])}else{print('error')}
-    remDr$navigate(paste0(api$api[i-1],'/iranalysis'))
+    remDr$navigate(paste0(api$api[i-1],'/iranalysis/',IR_id[i-1]))
     
   }
   
